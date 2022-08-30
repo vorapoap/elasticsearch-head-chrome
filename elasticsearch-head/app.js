@@ -4460,7 +4460,7 @@
 				{ tag: "TD", children: [
 					{ tag: "STRONG", text: index.name }
 				] },
-					{ tag: "TD", text: index.aliases.join(',') },
+					{ tag: "TD", text: (index.aliases || []).join(',') },
 					{ tag: "TD", text: index.creationDate },
 
 				{ tag: "TD", text: ut.byteSize_template( index.state.primaries.store.size_in_bytes ) + "/" + ut.byteSize_template( index.state.total.store.size_in_bytes ) },
