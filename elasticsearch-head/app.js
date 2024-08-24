@@ -1350,7 +1350,7 @@
 				}
 			}
 			var _cluster = this.cluster;
-			$(".uiHeader-status").html(i18n.text("AnyRequest.Requesting") + " " + _cluster.base_uri);
+			$(".uiHeader-status").html(i18n.text("AnyRequest.Requesting") + " " + this._hideCredentialsInURI(_cluster.base_uri));
 			_cluster.get("_cluster/state", function( data ) {
 				clusterState = data;
 				data.base_uri = _cluster.base_uri;
@@ -1408,6 +1408,13 @@
 				clusterHealth = data;
 				updateModel.call( self );
 			});
+		},
+		_hideCredentialsInURI: function(uri) {
+			return uri.replace(/(https?:\/\/)([^:]+):([^@]+)@/g, (match, protocol, username, password) => {
+				const hiddenUsername = '*';//.repeat(decodeURIComponent(username).length);
+				const hiddenPassword = '*';//.repeat(decodeURIComponent(password).length);
+				return `${protocol}${hiddenUsername}:${hiddenPassword}@`;
+			  });
 		},
 		_clusterState_handler: function(state) {
 			this.clusterState = state;
@@ -2927,10 +2934,22 @@
 				this.outEl.append("<br/><pre>" + response.responseText + "</pre>");
 			}
 		},
+		transformData: function (root, prev, transformLogic) {
+			// Apply the transformation logic here
+			// This will depend on what was originally in this.transformEl.val()
+			return transformLogic(root, prev);
+		},
 		_responseWriter_handler: function(data) {
 			this.outEl.empty();
 			try {
-				data = (new Function("root", "prev", this.transformEl.val()))(data, this.prevData)
+				console.log(this.transformEl.val());
+
+				data = this.transformData(data, this.prevData, (root, prev) => {
+					// Put the logic that was originally in this.transformEl.val() here
+					// For example:
+					return root;
+				});
+				//data = (new Function("root", "prev", this.transformEl.val()))(data, this.prevData)
 			} catch(e) {
 				this.errEl.text(e.message);
 				return;
@@ -3003,9 +3022,9 @@
 							{ tag: "INPUT", type: "text", name: "path", value: this.config.path },
 							{ tag: "SELECT", name: "method", children: ["POST", "GET", "PUT", "HEAD", "DELETE"].map(ut.option_template) },
 							{ tag: "TEXTAREA", name: "body", rows: 20, text: JSON.stringify(this.config.query) },
-							{ tag: "BUTTON", css: { cssFloat: "right" }, type: "button", children: [ { tag: "B", text: i18n.text("AnyRequest.Request") } ], onclick: this._request_handler },
-							{ tag: "BUTTON", type: "button", text: i18n.text("AnyRequest.ValidateJSON"), onclick: this._validateJson_handler },
-							{ tag: "LABEL", children: [ { tag: "INPUT", type: "checkbox", name: "pretty" }, i18n.text("AnyRequest.Pretty") ] },
+							{ tag: "BUTTON", cls: "uiButton-content", css: { cssFloat: "right" }, type: "button", children: [ { tag: "B", text: i18n.text("AnyRequest.Request") } ], onclick: this._request_handler },
+							{ tag: "BUTTON", cls: "uiButton-content", type: "button", text: i18n.text("AnyRequest.ValidateJSON"), onclick: this._validateJson_handler },
+							{ tag: "LABEL", cls: "uiButton-label", children: [ { tag: "INPUT", type: "checkbox", name: "pretty" }, i18n.text("AnyRequest.Pretty") ] },
 							{ tag: "DIV", cls: "uiAnyRequest-jsonErr" }
 						]}
 					}),
@@ -3188,7 +3207,7 @@
 			}
 		},
 		_deleteAliasAction_handler: function( index, alias ) {
-			if( confirm( i18n.text("Command.DeleteAliasMessage" ) ) ) {
+			if( confirm( i18n.text("Command.DeleteAliasMessage", alias.name ,  index.name) )) {
 				var command = {
 					"actions" : [
 						{ "remove" : { "index" : index.name, "alias" : alias.name } }
@@ -3318,18 +3337,43 @@
 			return null;
 		},
 		_aliasRender_template_list: function( cluster, indices ) {
+			var deleteHandler = this._deleteAliasAction_handler;
 			return cluster.aliases.length && { tag: "TBODY", children: [
 				{ tag: "TR", children: [
 					{ tag: "TD" }
-				].concat( indices.map( function( index ) {
-					return { tag: "TD", children: index.metadata && index.metadata.aliases.map( function( alias ) {
-						return { tag: "LI", text: alias };
+				].concat( indices.map( function( index,row ) {
+					var indexName = index.name;
+					return { tag: "TD", children: index.metadata && index.metadata.aliases.map( function( alias, index ) {
+						return {
+							tag: "DIV",
+							css: { "margin-bottom": "1px", background: "#" + "9ce9c7fc9".substr((row+6)%7,3) },
+							cls: "uiNodesView-hasAlias",
+							text: alias,
+							children: true || this.interactive ? [
+								{	tag: 'SPAN',
+									text: i18n.text("General.CloseGlyph"),
+									cls: 'uiNodesView-hasAlias-remove',
+									onclick: deleteHandler.bind( this, { name: indexName}, { name: alias } )
+								}
+							]: null
+						};
+						
+						return { 
+							tag: "LI", text: alias 
+						};
+
+
+						/*return {	tag: 'SPAN',
+							text: i18n.text("General.CloseGlyph"),
+							cls: 'uiNodesView-hasAlias-remove',
+							//onclick: this._deleteAliasAction_handler.bind( this, index, alias )
+						}*/
 					} ) };
 				})) }
 			] };
 		},
 		_aliasRender_template_full: function( cluster, indices ) {
-			return cluster.aliases.length && { tag: "TBODY", children: cluster.aliases.map( function(alias, row) {
+			return cluster.aliases.length && { tag: "TBODY", cls: "alias-body", children: cluster.aliases.map( function(alias, row) {
 				return { tag: "TR", children: [ { tag: "TD" },{ tag: "TD" } ].concat(alias.indices.map(function(index, i) {
 					if (index) {
 						return {
@@ -3354,7 +3398,10 @@
 		_main_template: function(cluster, indices) {
 			return { tag: "TABLE", cls: "table uiNodesView", children: [
 				this._styleSheetEl,
-				{ tag: "THEAD", children: [ { tag: "TR", children: indices.map(this._indexHeader_template, this) } ] },
+				{ tag: "THEAD", children: [ { tag: "TR", 
+					children: 
+						indices.map(this._indexHeader_template, this) } ] 
+				},
 				this._aliasRenderFunction( cluster, indices ),
 				{ tag: "TBODY", children: cluster.nodes.map(this._node_template, this) }
 			] };
@@ -3445,6 +3492,7 @@
 					}
 				}.bind( this )
 			});
+			this._indexSelectRenderer = this.prefs.get( "clusterOverview-indexSelectRender") || "both";
 			var nodeSortPref = this.prefs.get("clusterOverview-nodeSort") || Object.keys(NODE_SORT_TYPES)[0];
 			this._nodeSort = NODE_SORT_TYPES[ nodeSortPref ];
 			this._nodeSortMenu = new ui.MenuButton({
@@ -3476,6 +3524,7 @@
 					}.bind(this)
 				})
 			});
+			this._indexSelectRenderer = this.prefs.get( "clusterOverview-indexSelectRender") || "both";
 			this._aliasRenderer = this.prefs.get( "clusterOverview-aliasRender" ) || "full";
 			this._aliasMenu = new ui.MenuButton({
 				label: i18n.text( "Preference.ViewAliases" ),
@@ -3492,6 +3541,23 @@
 					}.bind(this)
 				})
 			});
+			this._indexSelectRenderer = this.prefs.get( "clusterOverview-indexSelectRender") || "both";
+			this._indexMenu = new ui.MenuButton({
+				label: i18n.text( "Preference.ViewIndexSelect" ),
+				menu: new ui.SelectMenuPanel({
+					value: this._indexSelectRenderer,
+					items: [
+						{ value: "system", text: i18n.text( "ViewIndexSelect.System" ) },
+						{ value: "normal", text: i18n.text( "ViewIndexSelect.Normal" ) },
+						{ value: "both", text: i18n.text( "ViewIndexSelect.Both" ) }
+					],
+					onSelect: function( panel, event ) {
+						this._indexSelectRenderer = event.value;
+						this.prefs.set( "clusterOverview-indexSelectRender", this._indexSelectRenderer );
+						this.draw_handler();
+					}.bind(this)
+				})
+			});
 			this._indexFilter = new ui.TextField({
 				value: this.prefs.get("clusterOverview-indexFilter"),
 				placeholder: i18n.text( "Overview.IndexFilter" ),
@@ -3504,6 +3570,12 @@
 			this.tablEl = this.el.find(".uiClusterOverview-table");
 			this.refresh();
 		},
+		  
+		  // Example usage:
+		  // mergeEmptyCellsInTbody('myTableId', 'merge-tbody');
+
+
+		
 		remove: function() {
 			this._clusterState.removeObserver( "data", this.draw_handler );
 		},
@@ -3514,9 +3586,26 @@
 		draw_handler: function() {
 			var data = this._clusterState;
 			var indexFilter;
+			var indexSelectPat;
+			var indexSelectRenderer;
 			try {
+				indexSelectRenderer = this._indexSelectRenderer;
+				switch (indexSelectRenderer) {
+					case "normal": indexSelectPat = '^[^.].*$'; break;
+					case "system": indexSelectPat = '^\\.[^\\n]*$'; break;
+					case "both": indexSelectPat = ""; break;
+				}
+				var indexSelectRe = new RegExp( indexSelectPat )
 				var indexFilterRe = new RegExp( this._indexFilter.val() );
-				indexFilter = function(s) { return indexFilterRe.test(s); };
+				indexFilter = function(s) { 
+					switch (indexSelectRenderer) {
+						case "system": 
+						case "normal":
+							return indexSelectRe.test(s) && indexFilterRe.test(s);
+						case "both":
+							return indexFilterRe.test(s); 
+					}
+				};
 			} catch(e) {
 				indexFilter = function() { return true; };
 			}
@@ -3646,6 +3735,7 @@
 				}.bind(this),
 				interactive: ( this._refreshButton.value === -1 ),
 				aliasRenderer: this._aliasRenderer,
+				indexSelectRenderer: this._indexSelectRenderer,
 				cluster: this.cluster,
 				data: {
 					cluster: cluster,
@@ -3657,11 +3747,12 @@
 		_main_template: function() {
 			return { tag: "DIV", id: this.id(), cls: "uiClusterOverview", children: [
 				new ui.Toolbar({
-					label: i18n.text("Overview.PageTitle"),
+					label: "",//label: i18n.text("Overview.PageTitle"),
 					left: [
 						this._nodeSortMenu,
 						this._indicesSortMenu,
 						this._aliasMenu,
+						this._indexMenu,
 						this._indexFilter
 					],
 					right: [
@@ -3796,7 +3887,6 @@
 			this._updateServerSelect();
 			this.cluster.get("", this._node_handler);
 			$("body").bind("onconnect", this._addServer_handler);
-
 		},
 
 		_node_handler: function (data) {
@@ -3831,7 +3921,7 @@
 			return { tag: "SELECT", children: options, onChange: this._changeCluster_handler };
 		},
 		_optionCluster_template: function(uri, name, version) {
-			return  { tag: "OPTION", value: uri, text: name + " (" + uri + ")" + (version?  " (" + version + ")": "")};
+			return  { tag: "OPTION", value: uri, text: name + " (" + this._hideCredentialsInURI(uri) + ")" + (version?  " (" + version + ")": "")};
 		},
 		_updateServerSelect: function (select_uri, select_name) {
 			var cluster_list = this.prefs.get("app-cluster_list");
@@ -3887,7 +3977,7 @@
 			this._updateServerSelect(uri, i18n.text("AnyRequest.Requesting"));
 		},
 		_promptConnect_handler: function() {
-			this.el.find(".uiClusterConnect-uri").val(prompt("Elasticsearch End-point URI?",this.el.find(".uiClusterConnect-uri").val()));
+			this.el.find(".uiClusterConnect-uri").val(prompt("Elasticsearch End-point URI? \n(e.g. http://username:password@localhost:9200)",this.el.find(".uiClusterConnect-uri").val()));
 			this._reconnect_handler();
 			this._updateServerSelect(uri, i18n.text("AnyRequest.Requesting"));
 		},
@@ -3903,7 +3993,15 @@
 				{ tag: "SPAN", type: "span", cls: "uiClusterSelector-select" },
 				{ tag: "BUTTON", type: "button", text: i18n.text("Header.ServerListRemove"), onclick: this._removeServer_handler }
 				]};
+		},
+		_hideCredentialsInURI: function(uri) {
+			return uri.replace(/(https?:\/\/)([^:]+):([^@]+)@/g, (match, protocol, username, password) => {
+				const hiddenUsername = '*';//.repeat(decodeURIComponent(username).length);
+				const hiddenPassword = '*';//.repeat(decodeURIComponent(password).length);
+				return `${protocol}${hiddenUsername}:${hiddenPassword}@`;
+			  });
 		}
+		  
 	});
 
 })( this.jQuery, this.app, this.i18n );
@@ -4164,8 +4262,8 @@
 		_main_template: function() {
 			return { tag: "DIV", children: [
 				{ tag: "DIV", cls: "uiFilterBrowser-filters" },
-				{ tag: "BUTTON", type: "button", text: i18n.text("General.Search"), onclick: this._search_handler },
-				{ tag: "LABEL", children:
+				{ tag: "BUTTON", cls: "uiButton-content", type: "button", text: i18n.text("General.Search"), onclick: this._search_handler },
+				{ tag: "LABEL", cls: "uiButton-label", children:
 					i18n.complex("FilterBrowser.OutputType", { tag: "SELECT", cls: "uiFilterBrowser-outputFormat", children: [
 						{ text: i18n.text("Output.Table"), value: "table" },
 						{ text: i18n.text("Output.JSON"), value: "json" },
@@ -4319,13 +4417,14 @@
 		},
 		_main_template: function() { return (
 			{ tag: "DIV", cls: this._baseCls, children: [
+				{ tag: "H1", text: i18n.text("General.Elasticsearch") + " Multi-head(s)" },
 				this._clusterConnect,
 				{ tag: "SPAN", cls: "uiHeader-name uiDisplayNone" },
-				{ tag: "SPAN", cls: "uiHeader-status" },
-				{ tag: "H1", text: i18n.text("General.Elasticsearch") },
 				{ tag: "SPAN", cls: "pull-right", children: [
 					this._quickMenu
-				] }
+				] },
+				{ tag: "SPAN", cls: "uiHeader-status" }
+				
 			] }
 		); }
 	} );
@@ -4460,7 +4559,7 @@
 				{ tag: "TD", children: [
 					{ tag: "STRONG", text: index.name }
 				] },
-					{ tag: "TD", text: index.aliases.join(',') },
+					{ tag: "TD", text: (index.aliases ? index.aliases.join(','):'') },
 					{ tag: "TD", text: index.creationDate },
 
 				{ tag: "TD", text: ut.byteSize_template( index.state.primaries.store.size_in_bytes ) + "/" + ut.byteSize_template( index.state.total.store.size_in_bytes ) },

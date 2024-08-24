@@ -32,7 +32,7 @@ i18n.setKeys({
 	"Browser.ResultSourcePanelTitle": "Résultat au format JSON",
 	"Command.DELETE": "SUPPRIMER",
 	"Command.SHUTDOWN": "ETEINDRE",
-	"Command.DeleteAliasMessage": "Supprimer l'Alias?",
+	"Command.DeleteAliasMessage": "Supprimer l'Alias ''{0}'' de index ''{1}''?",
 	"ClusterOverView.IndexName": "Index",
 	"ClusterOverview.NumShards": "Nombre de shards",
 	"ClusterOverview.NumReplicas": "Nombre de replica",
