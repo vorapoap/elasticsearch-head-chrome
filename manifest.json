@@ -1,23 +1,23 @@
 {
-    "manifest_version": 2,
-    "name": "Multi Elasticsearch Head",
-    "version": "0.2",
-    "description": "Multi Elasticsearch Head",
+    "manifest_version": 3,
+    "name": "Multi Elasticsearch Heads",
+    "version": "0.4.2",
+    "description": "Manage and visualize multuple Elasticsearch endpoints from within this Chrome extension",
     "icons": {
-        "16": "icons/logo_16.png",
-        "32": "icons/logo_32.png",
-        "48": "icons/logo_48.png",
-        "128": "icons/logo_128.png"
+        "16": "icons/esmhead_16x16.png",
+        "32": "icons/esmhead_32x32.png",
+        "48": "icons/esmhead_48x48.png",
+        "128": "icons/esmhead_128x128.png"
     },
-    "browser_action": {
+    "action": {
     },
     "background": {
-        "scripts": [
-            "src/background.js"
-        ]
+        "service_worker": "src/background.js"
     },
-    "content_security_policy": "script-src 'self' 'sha256-Rpn+rjJuXCjZBPOPhhVloRXuzAUBRnAas+6gKVDohs0=' 'unsafe-eval'; object-src 'self';",
-    "permissions": [
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self';" 
+    },
+    "host_permissions": [
         "http://*/*",
         "https://*/*"
     ],
