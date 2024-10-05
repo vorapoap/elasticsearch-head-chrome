@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Multi Elasticsearch Heads",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "description": "Manage and visualize multuple Elasticsearch endpoints from within this Chrome extension",
     "icons": {
         "16": "icons/esmhead_16x16.png",
@@ -9,17 +9,13 @@
         "48": "icons/esmhead_48x48.png",
         "128": "icons/esmhead_128x128.png"
     },
-    "action": {
-    },
+    "action": {},
     "background": {
         "service_worker": "src/background.js"
     },
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self';" 
+        "extension_pages": "script-src 'self'; object-src 'self';"
     },
-    "host_permissions": [
-        "http://*/*",
-        "https://*/*"
-    ],
+    "host_permissions": ["http://*/*", "https://*/*"],
     "update_url": "https://clients2.google.com/service/update2/crx"
 }

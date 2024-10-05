@@ -1,20 +1,35 @@
 <!DOCTYPE html>
 
 <html>
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>elasticsearch-head</title>
-		<link rel="stylesheet" href="base/reset.css">
-		<link rel="stylesheet" href="base/purecss.css">
-
-		<link rel="stylesheet" href="vendor.css">
-		<link rel="stylesheet" href="app.css">
-		<script src="i18n.js" data-baseDir="lang" data-langs="en,fr,pt,zh,zh-TW,tr,ja"></script>
-		<script src="vendor.js"></script>
-		<script src="app.js"></script>
-		<script src="onload.js"></script> 
-		<link rel="icon" href="base/favicon.png" type="image/png">
-	</head>
-	<body></body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>elasticsearch-head</title>
+        <link rel="stylesheet" href="base/reset.css" />
+        <link rel="stylesheet" href="base/purecss.css" />
+        <link rel="stylesheet" href="vendor.css" />
+        <link rel="stylesheet" href="app.css" />
+        <script src="i18n.js" data-baseDir="lang" data-langs="en,fr,pt,zh,zh-TW,tr,ja"></script>
+        <script src="base/jquery.min.js"></script>
+        <script src="vendor.js"></script>
+        <script src="app.js"></script>
+        <script src="onload.js"></script>
+        <link rel="icon" href="base/favicon.png" type="image/png" />
+    </head>
+    <body>
+        <div id="dialog-new-connection" class="modalDialog" title="Create new connection">
+            <div class="modalContent">
+                <div class="uiPanelForm">
+                    <label class="uiPanelForm-label" for="url">URL:</label>
+                    <input class="uiPanelForm-field" type="text" name="url" id="new-connection-url" class="text ui-widget-content ui-corner-all" />
+                    <label class="uiPanelForm-label" for="username">Username:</label>
+                    <input class="uiPanelForm-field" type="text" name="username" id="new-connection-username" class="text ui-widget-content ui-corner-all" />
+                    <label class="uiPanelForm-label" for="password">Password:</label>
+                    <input class="uiPanelForm-field" type="password" name="password" id="new-connection-password" class="text ui-widget-content ui-corner-all" />
+                    <label class="uiPanelForm-label" for="api-key">API Key:</label>
+                    <input class="uiPanelForm-field" type="text" name="api-key" id="new-connection-api-key" class="text ui-widget-content ui-corner-all" />
+                </div>
+            </div>
+        </div>
+    </body>
 </html>
