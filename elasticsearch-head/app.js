@@ -1471,7 +1471,7 @@
                 updateModel.call(self);
             });
 
-            this.cluster.get("_stats", function (data) {
+            this.cluster.get("_stats?forbid_closed_indices=false", function (data) {
                 status = data;
                 updateModel.call(self);
             });
@@ -5021,7 +5021,7 @@
             this.update();
         },
         update: function () {
-            this.cluster.get("_stats", this._update_handler);
+            this.cluster.get("_stats?forbid_closed_indices=false", this._update_handler);
         },
 
         _update_handler: function (data) {
