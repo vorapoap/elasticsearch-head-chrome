@@ -1843,13 +1843,17 @@
 (function ($, app, i18n) {
     var ui = app.ns("ui");
 
-    ui.RefreshButton = ui.SplitButton.extend({
+    ui.RefreshButton = ui.AbstractWidget.extend({
         defaults: {
             timer: -1,
         },
         init: function (parent) {
-            this.config.label = i18n.text("General.RefreshResults");
             this._super(parent);
+            this.value = this.config.timer;
+            this.el = $(this._main_template());
+            this.selectEl = this.el.find(".uiRefreshButton-select");
+            this.iconEl = this.el.find(".uiRefreshButton-icon");
+            this.attach(parent);
             this.set(this.config.timer);
         },
         set: function (value) {
@@ -1857,25 +1861,57 @@
             window.clearInterval(this._timer);
             if (this.value > 0) {
                 this._timer = window.setInterval(this._refresh_handler, this.value);
+                this.el.addClass("auto-refresh");
+            } else {
+                this.el.removeClass("auto-refresh");
             }
         },
-        _click_handler: function () {
-            this._refresh_handler();
+        disable: function () {
+            this.selectEl.prop("disabled", true);
+            this.iconEl.addClass("disabled");
         },
-        _select_handler: function (el, event) {
-            this.set(event.value);
-            this.fire("change", this);
+        enable: function () {
+            this.selectEl.prop("disabled", false);
+            this.iconEl.removeClass("disabled");
         },
         _refresh_handler: function () {
             this.fire("refresh", this);
         },
-        _getItems: function () {
-            return [
-                { text: i18n.text("General.ManualRefresh"), value: -1 },
-                { text: i18n.text("General.RefreshQuickly"), value: 100 },
-                { text: i18n.text("General.Refresh5seconds"), value: 5000 },
-                { text: i18n.text("General.Refresh1minute"), value: 60000 },
-            ];
+        _select_handler: function (jEv) {
+            var value = parseInt($(jEv.target).val());
+            this.set(value);
+            this.fire("change", this);
+        },
+        _icon_click_handler: function () {
+            this._refresh_handler();
+        },
+        _main_template: function () {
+            return {
+                tag: "DIV",
+                cls: "uiRefreshButton",
+                children: [
+                    {
+                        tag: "SELECT",
+                        cls: "uiRefreshButton-select",
+                        onchange: this._select_handler,
+                        children: [
+                            { tag: "OPTION", value: "-1", text: i18n.text("General.ManualRefresh") },
+                            { tag: "OPTION", value: "5000", text: i18n.text("General.Refresh5seconds") },
+                            { tag: "OPTION", value: "15000", text: i18n.text("General.Refresh15seconds") },
+                            { tag: "OPTION", value: "30000", text: i18n.text("General.Refresh30seconds") },
+                        ],
+                    },
+                    {
+                        tag: "BUTTON",
+                        cls: "uiRefreshButton-icon",
+                        type: "button",
+                        onclick: this._icon_click_handler,
+                        children: [
+                            { tag: "SPAN", cls: "refresh-icon", text: "↻" }
+                        ],
+                    },
+                ],
+            };
         },
     });
 })(this.jQuery, this.app, this.i18n);
@@ -2133,11 +2169,31 @@
         _getPosition: function (jEv) {
             var right = !!$(jEv.target).parents(".pull-right").length;
             var parent = $(jEv.target).closest("BUTTON");
-            return parent
+            var basePosition = parent
                 .vOffset()
-                .addY(parent.vSize().y)
-                .addX(right ? parent.vSize().x - this.el.vOuterSize().x : 0)
-                .asOffset();
+                .addY(parent.vSize().y);
+
+            if (right) {
+                basePosition = basePosition.addX(parent.vSize().x - this.el.vOuterSize().x);
+            }
+
+            var windowWidth = $(window).width();
+            var windowHeight = $(window).height();
+            var menuWidth = this.el.outerWidth();
+            var menuHeight = this.el.outerHeight();
+
+            if (basePosition.x + menuWidth > windowWidth) {
+                basePosition = basePosition.addX(windowWidth - basePosition.x - menuWidth - 10);
+            }
+
+            if (basePosition.y + menuHeight > windowHeight) {
+                basePosition = basePosition.addY(-parent.vSize().y - menuHeight);
+            }
+
+            if (basePosition.x < 10) basePosition = basePosition.addX(10 - basePosition.x);
+            if (basePosition.y < 10) basePosition = basePosition.addY(10 - basePosition.y);
+            
+            return basePosition.asOffset();
         },
     });
 })(this.app);
@@ -4433,7 +4489,10 @@
             this.prefs = services.Preferences.instance();
             this.cluster = this.config.cluster;
             this.el = $.joey(this._main_template());
-            this._updateServerSelect();
+
+            var currentUri = this.cluster ? this.cluster.base_uri : null;
+            this._updateServerSelect(currentUri);
+            
             this.cluster.get("", this._node_handler);
             $("body").bind("onconnect", this._addServer_handler);
         },
@@ -4447,6 +4506,11 @@
 
         _reconnect_handler: function () {
             var base_uri = this.el.find(".uiClusterConnect-uri").val();
+            
+            if (!base_uri) {
+                return;
+            }
+            
             var url;
             if (base_uri.indexOf("?") !== -1) {
                 url = base_uri.substring(0, base_uri.indexOf("?") - 1);
@@ -4484,10 +4548,10 @@
             var options = [];
             var added = false;
             if (cluster_list) {
-                for (i in cluster_list) {
-                    name = cluster_list[i].name;
-                    uri = cluster_list[i].uri;
-                    version = cluster_list[i].version;
+                for (var i in cluster_list) {
+                    var name = cluster_list[i].name;
+                    var uri = cluster_list[i].uri;
+                    var version = cluster_list[i].version;
                     if (!uri) continue;
                     if (uri.indexOf("?") != -1) continue;
                     options.push(this._optionCluster_template(uri, name, version));
@@ -4497,41 +4561,74 @@
                 }
             }
             if (select_uri && !added) {
-                options.push(this._optionCluster_template(uri, select_name));
+                options.push(this._optionCluster_template(select_uri, select_name));
             }
 
             this.el.find(".uiClusterSelector-select").empty().append(this._selectCluster_template(options));
             if (select_uri) {
                 this.el.find(".uiClusterSelector-select select").val(select_uri);
+            } else if (options.length > 0) {
+                var firstOption = options[0];
+                this.el.find(".uiClusterSelector-select select").val(firstOption.value);
+            } else {
+                this.el.find(".uiClusterSelector-select select").val("");
             }
         },
         _addServer_handler: function (event, data) {
             var base_uri = data.base_uri;
-            //this.el.find(".uiClusterSelector-select select").val();//this.el.find(".uiClusterConnect-uri").val();
-            cluster_list = this.prefs.get("app-cluster_list");
+            var cluster_list = this.prefs.get("app-cluster_list");
             if (!cluster_list) {
                 cluster_list = {};
             }
+
+            if (cluster_list[base_uri]) {
+                return;
+            }
+            
             cluster_list[data.base_uri] = {
                 uri: data.base_uri,
                 name: data.cluster_name,
                 version: data.cluster_version,
             };
-            for (x in cluster_list) {
-                if (x[x.length - 1] != "/") delete cluster_list[x]; // Clean up URL without trailing space.
-            }
+            
             this.prefs.set("app-cluster_list", cluster_list);
             this._updateServerSelect(base_uri, data.cluster_name);
         },
         _removeServer_handler: function () {
-            cluster_list = this.prefs.get("app-cluster_list");
-            delete cluster_list[this.el.find(".uiClusterSelector-select select").val()];
-            this.prefs.set("app-cluster_list", cluster_list);
+            var selectedUri = this.el.find(".uiClusterSelector-select select").val();
+
+            if (!selectedUri) {
+                return;
+            }
+            
+            var cluster_list = this.prefs.get("app-cluster_list");
+
+            if (cluster_list && cluster_list[selectedUri]) {
+                delete cluster_list[selectedUri];
+                this.prefs.set("app-cluster_list", cluster_list);
+            } else {
+                return;
+            }
+
             this._updateServerSelect();
-            this._reconnect_handler();
+
+            var remainingServers = Object.keys(cluster_list || {});
+            if (remainingServers.length > 0) {
+                var firstServer = remainingServers[0];
+                this.el.find(".uiClusterSelector-select select").val(firstServer);
+                this.el.find(".uiClusterConnect-uri").val(firstServer);
+                this._reconnect_handler();
+            } else {
+                this.el.find(".uiClusterConnect-uri").val("");
+            }
         },
         _changeCluster_handler: function () {
             var uri = this.el.find(".uiClusterSelector-select select").val();
+            
+            if (!uri) {
+                return;
+            }
+            
             this.el.find(".uiClusterConnect-uri").val(uri);
             this._reconnect_handler();
             this._updateServerSelect(uri, i18n.text("AnyRequest.Requesting"));
@@ -4568,9 +4665,25 @@
                             urlObject.password = data.password || "";
                         }
 
-                        this.el.find(".uiClusterConnect-uri").val(urlObject.toString());
+                        var uri = urlObject.toString();
+
+                        var cluster_list = this.prefs.get("app-cluster_list");
+                        if (!cluster_list) {
+                            cluster_list = {};
+                        }
+                        
+                        cluster_list[uri] = {
+                            uri: uri,
+                            name: "New Server",
+                            version: null
+                        };
+                        
+                        this.prefs.set("app-cluster_list", cluster_list);
+
+                        this._updateServerSelect(uri, "New Server");
+
+                        this.el.find(".uiClusterConnect-uri").val(uri);
                         this._reconnect_handler();
-                        this._updateServerSelect(uri, i18n.text("AnyRequest.Requesting"));
                     }
                 }.bind(this),
             }).open();
@@ -5018,6 +5131,7 @@
             this.el = $(this._main_template());
             this.attach(parent);
             this.cluster = this.config.cluster;
+            this.allIndices = [];
             this.update();
         },
         update: function () {
@@ -5025,13 +5139,116 @@
         },
 
         _update_handler: function (data) {
-            var options = [];
+            this.allIndices = [];
             var index_names = Object.keys(data.indices).sort();
             for (var i = 0; i < index_names.length; i++) {
-                name = index_names[i];
-                options.push(this._option_template(name, data.indices[name]));
+                var name = index_names[i];
+                this.allIndices.push({
+                    name: name,
+                    data: data.indices[name]
+                });
             }
-            this.el.find(".uiIndexSelector-select").empty().append(this._select_template(options));
+            setTimeout(function() {
+                this._initializeOptions();
+            }.bind(this), 0);
+        },
+
+        _updateOptions: function() {
+            var filterInput = this.el.find(".uiIndexSelector-selectInput");
+            var filterValue = filterInput.length > 0 ? filterInput.val() || "" : "";
+            filterValue = filterValue.toLowerCase();
+            
+            var filteredIndices = this.allIndices.filter(function(index) {
+                return index.name.toLowerCase().includes(filterValue);
+            });
+
+            var dropdown = this.el.find(".uiIndexSelector-dropdown");
+            if (dropdown.length > 0) {
+                dropdown.empty();
+
+                var maxLength = 0;
+                var optionTexts = [];
+                
+                for (var i = 0; i < filteredIndices.length; i++) {
+                    var index = filteredIndices[i];
+                    var optionText = i18n.text("IndexSelector.NameWithDocs", index.name, index.data.primaries.docs.count);
+                    optionTexts.push(optionText);
+                    maxLength = Math.max(maxLength, optionText.length);
+                }
+
+                if (maxLength > 0) {
+                    var estimatedWidth = Math.max(200, maxLength * 8);
+                    filterInput.css('width', estimatedWidth + 'px');
+                }
+                
+                for (var j = 0; j < filteredIndices.length; j++) {
+                    var index = filteredIndices[j];
+                    var optionEl = $("<div>")
+                        .addClass("uiIndexSelector-option")
+                        .attr("data-value", index.name)
+                        .text(optionTexts[j])
+                        .click(function(name) {
+                            return function() {
+                                this._optionSelected_handler(name);
+                            }.bind(this);
+                        }.bind(this)(index.name));
+                    dropdown.append(optionEl);
+                }
+            }
+        },
+
+        _filterChanged_handler: function() {
+            this._updateOptions();
+        },
+
+        _showDropdown_handler: function() {
+            this.el.find(".uiIndexSelector-dropdown").show();
+        },
+
+        _hideDropdown_handler: function() {
+            setTimeout(function() {
+                this.el.find(".uiIndexSelector-dropdown").hide();
+            }.bind(this), 200);
+        },
+
+        _initializeOptions: function() {
+            var options = [];
+            var maxLength = 0;
+
+            for (var i = 0; i < this.allIndices.length; i++) {
+                var index = this.allIndices[i];
+                var optionText = i18n.text("IndexSelector.NameWithDocs", index.name, index.data.primaries.docs.count);
+                maxLength = Math.max(maxLength, optionText.length);
+                options.push(this._option_template(index.name, index.data));
+            }
+            
+            var selectContainer = this.el.find(".uiIndexSelector-select");
+            if (selectContainer.length > 0) {
+                selectContainer.empty().append(this._select_template(options));
+
+                if (maxLength > 0) {
+                    var estimatedWidth = Math.max(200, maxLength * 8);
+                    this.el.find(".uiIndexSelector-selectInput").css('width', estimatedWidth + 'px');
+                }
+
+                var self = this;
+                this.el.find(".uiIndexSelector-selectInput").on("keyup", function() {
+                    self._filterChanged_handler();
+                });
+                
+                this.el.find(".uiIndexSelector-selectInput").on("focus", function() {
+                    self._showDropdown_handler();
+                });
+                
+                this.el.find(".uiIndexSelector-selectInput").on("blur", function() {
+                    self._hideDropdown_handler();
+                });
+            }
+        },
+
+        _optionSelected_handler: function(name) {
+            this.el.find(".uiIndexSelector-selectInput").val(name);
+            this.el.find(".uiIndexSelector-dropdown").hide();
             this._indexChanged_handler();
         },
 
@@ -5042,23 +5259,41 @@
                 children: i18n.complex("IndexSelector.SearchIndexForDocs", {
                     tag: "SPAN",
                     cls: "uiIndexSelector-select",
-                }),
+                })
             };
         },
 
         _indexChanged_handler: function () {
-            this.fire("indexChanged", this.el.find("SELECT").val());
+            this.fire("indexChanged", this.el.find(".uiIndexSelector-selectInput").val());
         },
 
         _select_template: function (options) {
-            return { tag: "SELECT", children: options, onChange: this._indexChanged_handler };
+            return {
+                tag: "DIV",
+                cls: "uiIndexSelector-customSelect",
+                children: [
+                    {
+                        tag: "INPUT",
+                        type: "text",
+                        cls: "uiIndexSelector-selectInput",
+                        placeholder: i18n.text("IndexSelector.FilterPlaceholder", "Type to filter indexes...")
+                    },
+                    {
+                        tag: "DIV",
+                        cls: "uiIndexSelector-dropdown",
+                        children: options
+                    }
+                ]
+            };
         },
 
         _option_template: function (name, index) {
             return {
-                tag: "OPTION",
-                value: name,
+                tag: "DIV",
+                cls: "uiIndexSelector-option",
+                "data-value": name,
                 text: i18n.text("IndexSelector.NameWithDocs", name, index.primaries.docs.count),
+                onclick: this._optionSelected_handler.bind(this, name)
             };
         },
     });
@@ -5155,6 +5390,16 @@
             this.cluster = this.config.cluster;
             this._clusterState = this.config.clusterState;
             this._clusterState.on("data", this._refresh_handler);
+
+            this.selectedIndices = [];
+            this.maxSelection = 5;
+
+            this._deleteButton = new ui.Button({
+                label: i18n.text("IndexOverview.DeleteSelected"),
+                cls: "uiIndexOverview-deleteButton",
+                onclick: this._deleteSelected_handler,
+            });
+            
             this.el = $(this._main_template());
             this._refresh_handler();
         },
@@ -5249,7 +5494,17 @@
                             {
                                 tag: "TR",
                                 children: [
-                                    { tag: "TH" },
+                                    { 
+                                        tag: "TH", 
+                                        children: [
+                                            { 
+                                                tag: "INPUT", 
+                                                type: "checkbox", 
+                                                cls: "uiIndexOverview-checkbox",
+                                                onclick: this._selectAll_handler 
+                                            }
+                                        ] 
+                                    },
                                     { tag: "TH", children: [{ tag: "STRONG", text: "Aliases" }] },
                                     { tag: "TH", children: [{ tag: "STRONG", text: "Creation Date" }] },
 
@@ -5272,6 +5527,18 @@
             return {
                 tag: "TR",
                 children: [
+                    { 
+                        tag: "TD", 
+                        children: [
+                            { 
+                                tag: "INPUT", 
+                                type: "checkbox", 
+                                cls: "uiIndexOverview-checkbox",
+                                "data-index": index.name,
+                                onclick: this._selectIndex_handler.bind(this, index.name)
+                            }
+                        ] 
+                    },
                     { tag: "TD", children: [{ tag: "STRONG", text: index.name }] },
                     { tag: "TD", text: index.aliases ? index.aliases.join(",") : "" },
                     { tag: "TD", text: index.creationDate },
@@ -5301,11 +5568,125 @@
                                 label: i18n.text("ClusterOverview.NewIndex"),
                                 onclick: this._newIndex_handler,
                             }),
+                            this._deleteButton,
+                            { 
+                                tag: "SPAN", 
+                                cls: "uiIndexOverview-selectedCount",
+                                text: i18n.text("IndexOverview.SelectMax")
+                            }
                         ],
                     }),
                     { tag: "DIV", cls: "uiIndexOverview-table", children: this._indexViewEl },
                 ],
             };
+        },
+
+        _selectIndex_handler: function(indexName, ev) {
+            var checkbox = ev.target;
+            var isChecked = checkbox.checked;
+            
+            if (isChecked) {
+                if (this.selectedIndices.length >= this.maxSelection) {
+                    checkbox.checked = false;
+                    alert(i18n.text("IndexOverview.TooManySelected"));
+                    return;
+                }
+                this.selectedIndices.push(indexName);
+            } else {
+                var index = this.selectedIndices.indexOf(indexName);
+                if (index > -1) {
+                    this.selectedIndices.splice(index, 1);
+                }
+            }
+            
+            this._updateDeleteButton();
+        },
+
+        _selectAll_handler: function(ev) {
+            var checkbox = ev.target;
+            var isChecked = checkbox.checked;
+            var indexCheckboxes = this.el.find("tbody input[type='checkbox']");
+            
+            if (isChecked) {
+                var maxToSelect = Math.min(this.maxSelection, indexCheckboxes.length);
+                indexCheckboxes.each(function(i, cb) {
+                    if (i < maxToSelect) {
+                        cb.checked = true;
+                        var indexName = $(cb).data("index");
+                        if (this.selectedIndices.indexOf(indexName) === -1) {
+                            this.selectedIndices.push(indexName);
+                        }
+                    }
+                }.bind(this));
+            } else {
+                indexCheckboxes.prop("checked", false);
+                this.selectedIndices = [];
+            }
+            
+            this._updateDeleteButton();
+        },
+
+        _updateDeleteButton: function() {
+            this._deleteButton.el.prop("disabled", this.selectedIndices.length === 0);
+        },
+
+        _deleteSelected_handler: function() {
+            if (this.selectedIndices.length === 0) {
+                alert(i18n.text("IndexOverview.NoIndexSelected"));
+                return;
+            }
+
+            var selectedNames = this.selectedIndices.join(", ");
+
+            if (prompt(i18n.text("IndexOverview.DeleteMessage", i18n.text("Command.DELETE"), selectedNames)) === i18n.text("Command.DELETE")) {
+                this._performDelete();
+            }
+        },
+
+        _performDelete: function() {
+            var self = this;
+            var deletedCount = 0;
+            var failedCount = 0;
+            var totalCount = this.selectedIndices.length;
+
+            var deleteNext = function(index) {
+                if (index >= self.selectedIndices.length) {
+                    if (failedCount === 0) {
+                        alert(i18n.text("IndexOverview.DeleteSuccess"));
+                    } else {
+                        alert(i18n.text("IndexOverview.DeleteFailed"));
+                    }
+                    self.selectedIndices = [];
+                    self._updateDeleteButton();
+
+                    // self._clusterState.refresh();
+                    return;
+                }
+                
+                var indexName = self.selectedIndices[index];
+
+                setTimeout(function() {
+                    self.cluster.delete(
+                        encodeURIComponent(indexName),
+                        null,
+                        function(response) {
+                            deletedCount++;
+                            setTimeout(function() {
+                                deleteNext(index + 1);
+                            }, 2000);
+                        },
+                        function(error) {
+                            console.error("Failed to delete index:", indexName, error);
+                            failedCount++;
+                            setTimeout(function() {
+                                deleteNext(index + 1);
+                            }, 2000);
+                        }
+                    );
+                }, 1000);
+            };
+            
+            deleteNext(0);
         },
     });
 })(this.jQuery, this.app, this.i18n);

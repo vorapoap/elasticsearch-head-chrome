@@ -114,38 +114,66 @@ TABLE.table H3 {
     text-align: left;
 }
 
-.uiSplitButton {
-    white-space: nowrap;
+.uiRefreshButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #96c6eb;
+    border: 1px solid #668dc6;
+    border-radius: 4px;
+    padding: 4px;
+    color: white;
 }
 
-.uiSplitButton .uiButton:first-child {
-    margin-right: 0;
-    display: inline-block;
+.uiRefreshButton-select {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 13px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
 }
 
-.uiSplitButton .uiButton:first-child .uiButton-content {
-    border-right-width: 1;
-    border-right-color: #5296c7;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+.uiRefreshButton-select option {
+    background: #96c6eb;
+    color: white;
 }
 
-.uiSplitButton .uiMenuButton {
-    margin-left: 0;
+.uiRefreshButton-icon {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.uiSplitButton .uiButton:last-child .uiButton-content {
-    border-radius: 2px;
-    border-left-width: 1;
-    border-left-color: #96c6eb;
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-    height: 15px;
+.uiRefreshButton-icon:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
-.uiSplitButton .uiButton:last-child .uiButton-label {
-    padding: 2px 17px 2px 6px;
-    margin-left: -8px;
+.uiRefreshButton-icon.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.uiRefreshButton-icon.disabled:hover {
+    background: transparent;
+}
+
+.refresh-icon {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.uiRefreshButton.auto-refresh {
+    background: #2575b7;
+    border-color: #1e5a8a;
 }
 
 .uiToolbar {
@@ -258,11 +286,14 @@ TABLE.table H3 {
     position: absolute;
     background: #96c6eb;
     color: white;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .uiMenuPanel LI {
     list-style: none;
     border-bottom: 1px solid #668dc6;
+    padding: 0;
 }
 
 .uiMenuPanel LI:hover {
@@ -273,7 +304,13 @@ TABLE.table H3 {
     border-bottom: 0;
 }
 
+.uiMenuPanel-item {
+    cursor: pointer;
+}
+
 .uiMenuPanel-label {
+    font-size: 13px;
+    line-height: 1.4;
     white-space: nowrap;
     padding: 2px 10px 2px 10px;
     cursor: pointer;
@@ -764,6 +801,12 @@ SPAN.uiJsonPretty-boolean {
     top: 1px;
 }
 
+.uiFilterBrowser-row BUTTON {
+    height: 22px;
+    position: relative;
+    top: 1px;
+}
+
 .uiHeader {
     padding: 3px 10px;
 }
@@ -825,6 +868,95 @@ SPAN.uiJsonPretty-boolean {
     padding: 2px 15px 2px 15px;
     margin-left: 5px;
     margin-right: 5px;
+}
+
+.uiIndexSelector {
+    display: inline;
+}
+
+.uiIndexSelector-customSelect {
+    position: relative;
+    display: inline-block;
+}
+
+.uiIndexSelector-selectInput {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 100%;
+    width: auto;
+    min-width: 200px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.uiIndexSelector-selectInput:focus {
+    outline: none;
+    border-color: #397fca;
+    box-shadow: 0 0 3px rgba(57, 127, 202, 0.3);
+}
+
+.uiIndexSelector-selectInput::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+.uiIndexSelector-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.uiIndexSelector-option {
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.uiIndexSelector-option:hover {
+    background-color: #f5f5f5;
+}
+
+.uiIndexSelector-option:last-child {
+    border-bottom: none;
+}
+
+.uiIndexOverview-deleteButton {
+    margin-left: 10px;
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.uiIndexOverview-deleteButton:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.uiIndexOverview-deleteButton:disabled {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    cursor: not-allowed;
+}
+
+.uiIndexOverview-checkbox {
+    margin: 0;
+    cursor: pointer;
+}
+
+.uiIndexOverview-selectedCount {
+    margin-left: 10px;
+    color: #6c757d;
+    font-size: 0.9em;
 }
 
 .modalDialog {
